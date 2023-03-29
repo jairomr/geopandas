@@ -425,25 +425,27 @@ def _write_postgis(
     else:
         schema_name = "public"
 
+    from sqlalchemy import text
     if if_exists == "append":
-        # Check that the geometry srid matches with the current GeoDataFrame
-        with _get_conn(con) as connection:
-            # Only check SRID if table exists
-            if connection.dialect.has_table(connection, name, schema):
-                target_srid = connection.execute(
-                    "SELECT Find_SRID('{schema}', '{table}', '{geom_col}');".format(
-                        schema=schema_name, table=name, geom_col=geom_name
-                    )
-                ).fetchone()[0]
+            # Check that the geometry srid matches with the current GeoDataFrame
+            with _get_conn(con) as connection:
+                # Only check SRID if table exists
+                if connection.dialect.has_table(connection, name, schema):
 
-                if target_srid != srid:
-                    msg = (
-                        "The CRS of the target table (EPSG:{epsg_t}) differs from the "
-                        "CRS of current GeoDataFrame (EPSG:{epsg_src}).".format(
-                            epsg_t=target_srid, epsg_src=srid
+                    target_srid = connection.execute(
+                        text("SELECT Find_SRID('{schema}', '{table}', '{geom_col}');".format(
+                            schema=schema_name, table=name, geom_col=geom_name
+                        ))
+                    ).fetchone()[0]
+
+                    if target_srid != srid:
+                        msg = (
+                            "The CRS of the target table (EPSG:{epsg_t}) differs from the "
+                            "CRS of current GeoDataFrame (EPSG:{epsg_src}).".format(
+                                epsg_t=target_srid, epsg_src=srid
+                            )
                         )
-                    )
-                    raise ValueError(msg)
+                        raise ValueError(msg)
 
     with _get_conn(con) as connection:
         gdf.to_sql(
